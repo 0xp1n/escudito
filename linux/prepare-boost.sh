@@ -12,11 +12,11 @@ grayColour='\033[0;37m'
 
 endColour='\033[0m'
 
-CURRENT_DIR=$(dirname "$0")
+CURRENT_DIR=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 
 source "$CURRENT_DIR/../helpers/utils.sh"
 
-main() {
+linux_main() {
     apply_sshd_configuration_file
 }
 
@@ -27,18 +27,19 @@ main() {
 ###
 
 apply_sshd_configuration_file() {
+    local TARGET_DIR="/etc/sshd_config.d/"
     local SSH_CONFIGURATION_FILE="$CURRENT_DIR/sshd_config/hardening-init.conf"    
-    declare -i SSH_PORT=22
+    declare -i SSH_PORT=0
   
     if directory_exists "/etc/sshd_config.d"; then
-        while port_in_valid_range $SSH_PORT -eq 0; do 
-            read -rp "$yellowColour [ SSH Hardening ]$endColour Select a port for OpenSSH service (Default 22) " SSH_PORT
+        while ! port_in_valid_range $SSH_PORT; do 
+            read -rp "$(echo -e "$yellowColour [ SSH Hardening ]$endColour Select a port for OpenSSH service (Default 22) ")" SSH_PORT
+             is_empty $SSH_PORT \
+                && SSH_PORT=22
         done
 
-        cp "$SSH_CONFIGURATION_FILE" /etc/sshd_config.d/
+        cp "$SSH_CONFIGURATION_FILE" "$TARGET_DIR"
     else
-      echo -e "$yellowColour [ SSH Hardening ]$endColour The configuration folder /etc/sshd_config.d does not exists in this system$redColour [FAILED]$endColour"   
+      echo -e "$yellowColour [ SSH Hardening ]$endColour The configuration folder /etc/sshd_config.d does not exists in this system$redColour [FAILED] $endColour"   
     fi
 }
-
-main
