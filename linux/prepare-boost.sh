@@ -19,8 +19,13 @@ ssh_message_prefix() {
 }
 
 sudoers_message_prefix() {
-        local content=$1
-        echo -e "$blueColour [ SUDO Hardening ]$endColour $content"
+    local content=$1
+    echo -e "$blueColour [ SUDO Hardening ]$endColour $content"
+}
+
+grub_message_prefix() {
+    local content=$1
+    echo -e "$blueColour [ GRUB Hardening ]$endColour $content"
 }
 
 apply_sshd_configuration_file() {
@@ -142,6 +147,10 @@ restrict_access_su_command() {
     else 
         sudoers_message_prefix "the file$cyanColour $SU_PATH $endColour does not exists$redColour [FAILED]$endColour"
     fi
+}
+
+grub_security() {
+    grub_message_prefix "Hardening GRUB for this system"
 }
 
 linux_main() {
