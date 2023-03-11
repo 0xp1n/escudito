@@ -15,8 +15,12 @@ source "$CURRENT_DIR/../helpers/utils.sh"
 
 ssh_message_prefix() {
     local content=$1
-
     echo -e "$yellowColour [ SSH Hardening ]$endColour $content"
+}
+
+sudoers_message_prefix() {
+        local content=$1
+        echo -e "$blueColour [ SUDO Hardening ]$endColour $content"
 }
 
 apply_sshd_configuration_file() {
@@ -36,9 +40,9 @@ allowed_users_and_groups() {
     local ALLOWED_GROUPS=''
     local DENY_USERS=''
 
-    read -rp "$(ssh_message_prefix "Define the allowed users that are allowed to connect via ssh (Default $ALLOWED_USERS): ")" ALLOWED_USERS
-    read -rp "$(ssh_message_prefix "Define the allowed groups that are allowed to connect via ssh (Default empty): ")" ALLOWED_GROUPS
-    read -rp "$(ssh_message_prefix "Define the denied users that are not allowed to connect via ssh (Default $DENY_USERS): ")" DENY_USERS
+    read -rp "$(ssh_message_prefix "Define the allowed users that are allowed to connect via ssh (Default $(id -un)): ")" ALLOWED_USERS
+    read -rp "$(ssh_message_prefix "Define the allowed groups that are allowed to connect via ssh (Default <blank>): ")" ALLOWED_GROUPS
+    read -rp "$(ssh_message_prefix "Define the denied users that are not allowed to connect via ssh (Default root admin): ")" DENY_USERS
 
     is_empty "$ALLOWED_USERS" && ALLOWED_USERS=$(id -un)
     is_empty "$DENY_USERS" && DENY_USERS='root admin'
@@ -79,18 +83,59 @@ copy_ssh_configuration_file() {
       echo -e "$yellowColour [ SSH Hardening ]$endColour The configuration folder$cyanColour /etc/sshd_config.d$endColour does not exists in this system$redColour [FAILED]$endColour"   
     fi
 
-    #rm "$SSH_CONFIGURATION_FILE"
+    rm "$SSH_CONFIGURATION_FILE"
 
+}
+
+sudoers_configuration() {
+    local SUDOERS_PATH="/etc/sudoers"
+    local LOG_PATH=''
+
+    if file_exists "$SUDOERS_PATH"; then
+        sudoers_message_prefix "Appending path to handle sudo logs in $SUDOERS_PATH"
+
+        read -rp "$(sudoers_message_prefix "Select the destination of sudo logs (Default /var/log/sudo.log): ")" LOG_PATH
+        is_empty "$LOG_PATH" \
+            && LOG_PATH="/var/log/sudo.log"
+
+        sed -i '' "/Defaults use_pty/s/.*/&\nDefaults logfile=\"$LOG_PATH\"/" "$SUDOERS_PATH"
+    else 
+        sudoers_message_prefix "the file$cyanColour $SUDOERS_PATH $endColour does not exists$redColour [FAILED]$endColour"
+    fi
+}
+
+restrict_access_su_command() {
+    local SU_PATH="/etc/pam.d/su"
+
+    if file_exists $SU_PATH; then
+        sudoers_message_prefix "Creating the group sugroup to restrict the execution of su command"
+        groupadd sugroup
+        usermod -a -G sugroup "$(id -un)"
+
+        echo -e "auth    required    pam_wheel.so use_uid group=sugroup\n" >> "$SU_PATH"
+
+        sudoers_message_prefix "Creating the group$cyanColour sugroup$endColour to restrict the execution of su command$greenColour [SUCCESS]$endColour"
+
+    else 
+        sudoers_message_prefix "the file$cyanColour $SU_PATH $endColour does not exists$redColour [FAILED]$endColour"
+    fi
 }
 
 linux_main() {
     # Create a working copy to not disturb the original template
     cp -f "$(dirname "$SSH_CONFIGURATION_FILE")/template.conf" "$SSH_CONFIGURATION_FILE" 
 
+    # SSH
     apply_sshd_configuration_file
     allowed_users_and_groups
     generate_ssh_key
     copy_ssh_configuration_file
+
+    #SUDO
+    sudoers_configuration
+    restrict_access_su_command
+
+
 }
 
 export -f linux_main
