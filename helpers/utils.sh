@@ -36,5 +36,10 @@ is_empty() {
     [[ -z $var ]]
 }
 
+command_exists() {
+    local COMMAND=$1
 
-export -f directory_exists file_exists is_empty
+    [[ -n "$(command -v "$COMMAND")" ]]
+}
+
+export -f directory_exists file_exists is_empty command_exists

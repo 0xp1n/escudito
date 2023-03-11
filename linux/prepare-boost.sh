@@ -48,6 +48,25 @@ allowed_users_and_groups() {
     sed -i '' -e "s/<DENY_USERS>/$DENY_USERS/" "$SSH_CONFIGURATION_FILE"
 }
 
+generate_ssh_key() {
+    local IDENTITY=''
+
+    if command_exists "ssh-keygen"; then
+        while is_empty "$IDENTITY"; do
+            read -rp "$(ssh_message_prefix "Define an identity (phone,email..) value to generate the ssh key"): " IDENTITY
+        done
+
+        ssh_message_prefix "Generating key pair to connect via ssh..."
+        ssh_message_prefix "$cyanColour Remember to move the content of$endColour $grayColour .pub file inside$endColour $cyanColour~/.ssh/authorized_keys$endColour"
+
+        ssh-keygen -t ed25519 -C "$IDENTITY"
+        eval "$(ssh-agent -s)"
+    else 
+        echo -e "$yellowColour [ SSH Hardening ]$endColour The command ssh-keygen does not exists, cannot create the ssh keys $redColour [FAILED]$endColour"   
+    fi
+
+}
+
 copy_ssh_configuration_file() {
     local TARGET_DIR="/etc/sshd_config.d/"
 
@@ -70,6 +89,7 @@ linux_main() {
 
     apply_sshd_configuration_file
     allowed_users_and_groups
+    generate_ssh_key
     copy_ssh_configuration_file
 }
 
