@@ -28,24 +28,24 @@ apply_sshd_configuration_file() {
                 && SSH_PORT=22
     done
 
-    sed "s/<PORT>/$SSH_PORT/" "$SSH_CONFIGURATION_FILE" &>/dev/null
+    sed -i '' -e "s/<PORT>/$SSH_PORT/" "$SSH_CONFIGURATION_FILE"
 }
 
 allowed_users_and_groups() {
-    local ALLOWED_USERS
-    ALLOWED_USERS=$(id -un)
-
+    local ALLOWED_USERS=''
     local ALLOWED_GROUPS=''
-    local DENY_USERS='root admin'
+    local DENY_USERS=''
 
     read -rp "$(ssh_message_prefix "Define the allowed users that are allowed to connect via ssh (Default $ALLOWED_USERS): ")" ALLOWED_USERS
     read -rp "$(ssh_message_prefix "Define the allowed groups that are allowed to connect via ssh (Default empty): ")" ALLOWED_GROUPS
     read -rp "$(ssh_message_prefix "Define the denied users that are not allowed to connect via ssh (Default $DENY_USERS): ")" DENY_USERS
 
-    sed -i "s/<ALLOW_USERS>/$ALLOWED_USERS/" "$SSH_CONFIGURATION_FILE"
-    sed -i "s/<ALLOW_GROUPS>/$ALLOWED_GROUPS/" "$SSH_CONFIGURATION_FILE" 
-    sed -i "s/<DENY_USERS>/DenyUsers $DENY_USERS/" "$SSH_CONFIGURATION_FILE"
+    is_empty "$ALLOWED_USERS" && ALLOWED_USERS=$(id -un)
+    is_empty "$DENY_USERS" && DENY_USERS='root admin'
 
+    sed -i '' -e "s/<ALLOW_USERS>/$ALLOWED_USERS/" "$SSH_CONFIGURATION_FILE"
+    sed -i '' -e "s/<ALLOW_GROUPS>/$ALLOWED_GROUPS/" "$SSH_CONFIGURATION_FILE"
+    sed -i '' -e "s/<DENY_USERS>/$DENY_USERS/" "$SSH_CONFIGURATION_FILE"
 }
 
 copy_ssh_configuration_file() {
@@ -54,13 +54,20 @@ copy_ssh_configuration_file() {
     if directory_exists $TARGET_DIR; then
         ssh_message_prefix "Copied$cyanColour $SSH_CONFIGURATION_FILE$grayColour to$endColour $cyanColour$TARGET_DIR$endColour $greenColour [SUCCESS]$endColour"
 
-    cp "$SSH_CONFIGURATION_FILE" "$TARGET_DIR"
+    cp -f "$SSH_CONFIGURATION_FILE" "$TARGET_DIR"
+
     else
       echo -e "$yellowColour [ SSH Hardening ]$endColour The configuration folder$cyanColour /etc/sshd_config.d$endColour does not exists in this system$redColour [FAILED]$endColour"   
     fi
+
+    #rm "$SSH_CONFIGURATION_FILE"
+
 }
 
 linux_main() {
+    # Create a working copy to not disturb the original template
+    cp -f "$(dirname "$SSH_CONFIGURATION_FILE")/template.conf" "$SSH_CONFIGURATION_FILE" 
+
     apply_sshd_configuration_file
     allowed_users_and_groups
     copy_ssh_configuration_file

@@ -4,7 +4,7 @@ CURRENT_DIR=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 
 source "$CURRENT_DIR/linux/prepare-boost.sh"
 
-banner() {
+display_banner() {
 cat << EOF
     (  ____ \(  ____ \(  ____ \|\     /|(  __  \ \__   __/\__   __/(  ___  )
     | (    \/| (    \/| (    \/| )   ( || (  \  )   ) (      ) (   | (   ) |
@@ -17,7 +17,7 @@ EOF
 }
 
 main() {
-    banner
+    display_banner
     linux_main
 }
 
