@@ -107,7 +107,7 @@ sudoers_configuration() {
     local SUDOERS_PATH="/etc/sudoers"
 
     if file_exists "$SUDOERS_PATH"; then
-        sudoers_message_prefix "\nAppending configuration to handle sudo logs in$cyanColour $SUDOERS_PATH$endColour"
+        sudoers_message_prefix "Appending configuration to handle sudo logs in$cyanColour $SUDOERS_PATH$endColour"
 
         ! grep -i 'use_pty' "$SUDOERS_PATH" \
             && echo  "Defaults use_pty" >> "$SUDOERS_PATH" 
@@ -120,10 +120,19 @@ sudoers_configuration() {
 
 restrict_access_su_command() {
     local SU_PATH="/etc/pam.d/su"
+    local SU_GROUP_NAME='sugroup'
 
     if file_exists $SU_PATH; then
-        sudoers_message_prefix "Creating the group sugroup to restrict the execution of su command"
-        groupadd sugroup
+        sudoers_message_prefix "Creating the group$cyanColour sugroup$endColour to restrict the execution of$cyanColour su$endColour command"
+        
+        if command_exists "groupadd"; then 
+            groupadd $SU_GROUP_NAME
+        elif command_exists "addgroup"; then
+            addgroup $SU_GROUP_NAME
+        else 
+            sudoers_message_prefix "Cannot add new group$cyanColour $SU_GROUP_NAME$endColour because the commands$yellowColour grouppadd$endColour and$yellowColour addgroup$endColour are not installed$redColour [FAILED]$endColour"
+        fi
+
         usermod -a -G sugroup "$(id -un)"
 
         echo -e "auth    required    pam_wheel.so use_uid group=sugroup\n" >> "$SU_PATH"
