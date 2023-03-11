@@ -40,7 +40,23 @@ allowed_users_and_groups() {
     local ALLOWED_GROUPS=''
     local DENY_USERS=''
 
-    read -rp "$(ssh_message_prefix "Define the allowed users that are allowed to connect via ssh (Default $(id -un)): ")" ALLOWED_USERS
+    while is_empty "$ALLOWED_USERS"; do
+        read -rp "$(ssh_message_prefix "Define the allowed users that are allowed to connect via ssh: ")" ALLOWED_USERS
+
+        if ! is_empty "$ALLOWED_USERS"; then
+            read -ra names <<< "$ALLOWED_USERS"
+
+            for name in "${names[@]}"; do
+                if ! id -u "$name" 1>/dev/null; then 
+                ssh_message_prefix "$redColour The user$yellowColour $name $endColour$redColour does not exists in the system, please try again$endColour"
+                    ALLOWED_USERS=''
+                    break
+                fi
+            done
+        fi
+   
+    done
+
     read -rp "$(ssh_message_prefix "Define the allowed groups that are allowed to connect via ssh (Default <blank>): ")" ALLOWED_GROUPS
     read -rp "$(ssh_message_prefix "Define the denied users that are not allowed to connect via ssh (Default root admin): ")" DENY_USERS
 
@@ -61,7 +77,7 @@ generate_ssh_key() {
         done
 
         ssh_message_prefix "Generating key pair to connect via ssh..."
-        ssh_message_prefix "$cyanColour Remember to move the content of$endColour $grayColour .pub file inside$endColour $cyanColour~/.ssh/authorized_keys$endColour"
+        ssh_message_prefix "Remember to move the content of$grayColour .pub$endColour file inside$cyanColour ~/.ssh/authorized_keys$endColour"
 
         ssh-keygen -t ed25519 -C "$IDENTITY"
         eval "$(ssh-agent -s)"
@@ -89,16 +105,14 @@ copy_ssh_configuration_file() {
 
 sudoers_configuration() {
     local SUDOERS_PATH="/etc/sudoers"
-    local LOG_PATH=''
 
     if file_exists "$SUDOERS_PATH"; then
-        sudoers_message_prefix "Appending path to handle sudo logs in $SUDOERS_PATH"
+        sudoers_message_prefix "\nAppending configuration to handle sudo logs in$cyanColour $SUDOERS_PATH$endColour"
 
-        read -rp "$(sudoers_message_prefix "Select the destination of sudo logs (Default /var/log/sudo.log): ")" LOG_PATH
-        is_empty "$LOG_PATH" \
-            && LOG_PATH="/var/log/sudo.log"
+        ! grep -i 'use_pty' "$SUDOERS_PATH" \
+            && echo  "Defaults use_pty" >> "$SUDOERS_PATH" 
 
-        sed -i '' "/Defaults use_pty/s/.*/&\nDefaults logfile=\"$LOG_PATH\"/" "$SUDOERS_PATH"
+        sed -i '' '/use_pty/s/.*/&\nDefaults logfile="\/var\/log\/sudo.log"/' /etc/sudoers
     else 
         sudoers_message_prefix "the file$cyanColour $SUDOERS_PATH $endColour does not exists$redColour [FAILED]$endColour"
     fi
