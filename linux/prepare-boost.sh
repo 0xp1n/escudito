@@ -2,23 +2,10 @@
 
 set -euo pipefail
 
-greenColour='\033[0;32m'
-redColour='\033[0;31m'
-blueColour='\033[0;34m'
-yellowColour='\033[1;33m'
-purpleColour='\033[0;35m'
-cyanColour='\033[0;36m'
-grayColour='\033[0;37m'
-
-endColour='\033[0m'
-
 CURRENT_DIR=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
+SSH_CONFIGURATION_FILE="$CURRENT_DIR/sshd_config/hardening-init.conf"    
 
 source "$CURRENT_DIR/../helpers/utils.sh"
-
-linux_main() {
-    apply_sshd_configuration_file
-}
 
 ###
 #  [SSH HARDENING] 
@@ -33,20 +20,50 @@ ssh_message_prefix() {
 }
 
 apply_sshd_configuration_file() {
-    local TARGET_DIR="/etc/sshd_config.d/"
-    local SSH_CONFIGURATION_FILE="$CURRENT_DIR/sshd_config/hardening-init.conf"    
     declare -i SSH_PORT=0
   
-    if directory_exists "/etc/sshd_config.d"; then
-        while ! port_in_valid_range $SSH_PORT; do 
-            read -rp "$(ssh_message_prefix "Select a port for OpenSSH service (Default 22) ")" SSH_PORT
-             is_empty $SSH_PORT \
+    while ! port_in_valid_range $SSH_PORT; do 
+        read -rp "$(ssh_message_prefix "Select a port for OpenSSH service (Default 22): ")" SSH_PORT
+            is_empty $SSH_PORT \
                 && SSH_PORT=22
-        done
+    done
 
+    sed "s/<PORT>/$SSH_PORT/" "$SSH_CONFIGURATION_FILE" &>/dev/null
+}
+
+allowed_users_and_groups() {
+    local ALLOWED_USERS
+    ALLOWED_USERS=$(id -un)
+
+    local ALLOWED_GROUPS=''
+    local DENY_USERS='root admin'
+
+    read -rp "$(ssh_message_prefix "Define the allowed users that are allowed to connect via ssh (Default $ALLOWED_USERS): ")" ALLOWED_USERS
+    read -rp "$(ssh_message_prefix "Define the allowed groups that are allowed to connect via ssh (Default empty): ")" ALLOWED_GROUPS
+    read -rp "$(ssh_message_prefix "Define the denied users that are not allowed to connect via ssh (Default $DENY_USERS): ")" DENY_USERS
+
+    sed -i "s/<ALLOW_USERS>/$ALLOWED_USERS/" "$SSH_CONFIGURATION_FILE"
+    sed -i "s/<ALLOW_GROUPS>/$ALLOWED_GROUPS/" "$SSH_CONFIGURATION_FILE" 
+    sed -i "s/<DENY_USERS>/DenyUsers $DENY_USERS/" "$SSH_CONFIGURATION_FILE"
+
+}
+
+copy_ssh_configuration_file() {
+    local TARGET_DIR="/etc/sshd_config.d/"
+
+    if directory_exists $TARGET_DIR; then
         ssh_message_prefix "Copied$cyanColour $SSH_CONFIGURATION_FILE$grayColour to$endColour $cyanColour$TARGET_DIR$endColour $greenColour [SUCCESS]$endColour"
-        cp "$SSH_CONFIGURATION_FILE" "$TARGET_DIR"
+
+    cp "$SSH_CONFIGURATION_FILE" "$TARGET_DIR"
     else
       echo -e "$yellowColour [ SSH Hardening ]$endColour The configuration folder$cyanColour /etc/sshd_config.d$endColour does not exists in this system$redColour [FAILED]$endColour"   
     fi
 }
+
+linux_main() {
+    apply_sshd_configuration_file
+    allowed_users_and_groups
+    copy_ssh_configuration_file
+}
+
+export -f linux_main
