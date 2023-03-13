@@ -153,6 +153,12 @@ grub_security() {
     grub_message_prefix "Hardening GRUB for this system"
 }
 
+file_permissions() {
+    echo -e "umask027\nreadonly TMOUT=\"300\"\nexport TMOUT" >> "/etc/bash.bashrc"
+    echo "umask027" >> "/etc/profile"
+
+}
+
 linux_main() {
     # Create a working copy to not disturb the original template
     cp -f "$(dirname "$SSH_CONFIGURATION_FILE")/template.conf" "$SSH_CONFIGURATION_FILE" 
@@ -167,7 +173,8 @@ linux_main() {
     sudoers_configuration
     restrict_access_su_command
 
-
+    #File permissions
+    file_permissions
 }
 
 export -f linux_main
