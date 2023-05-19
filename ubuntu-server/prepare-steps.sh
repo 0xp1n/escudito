@@ -75,6 +75,7 @@ allowed_users_and_groups() {
 
 generate_ssh_key() {
     local IDENTITY=''
+    local SSH_KEY_PATH="$HOME/.ssh/id_ed25519"
 
     if command_exists "ssh-keygen"; then
         while is_empty "$IDENTITY"; do
@@ -82,12 +83,17 @@ generate_ssh_key() {
         done
 
         ssh_message_prefix "Generating key pair to connect via ssh..."
-        ssh_message_prefix "Remember to move the content of$grayColour .pub$endColour file inside$cyanColour ~/.ssh/authorized_keys$endColour"
-
+        
         ssh-keygen -t ed25519 -C "$IDENTITY"
         eval "$(ssh-agent -s)"
+        
+        read -rp "Insert here the path where you generated the private ssh key (Default $SSH_KEY_PATH): " SSH_KEY_PATH
+        ssh-add "$SSH_KEY_PATH"
+
+        ssh_message_prefix "Adding generated$grayColour .pub$endColour key on$cyanColour ~/.ssh/authorized_keys$endColour"
+
     else 
-        echo -e "$yellowColour [ SSH Hardening ]$endColour The command ssh-keygen does not exists, cannot create the ssh keys $redColour [FAILED]$endColour"   
+        ssh_message_prefix "${redColour}The command ssh-keygen does not exists, cannot create the ssh keys $endColour"   
     fi
 
 }
@@ -156,13 +162,18 @@ grub_security() {
 file_permissions() {
     echo -e "umask027\nreadonly TMOUT=\"300\"\nexport TMOUT" >> "/etc/bash.bashrc"
     echo "umask027" >> "/etc/profile"
+    echo "umask027" >> "$HOME/.profile"
+
 
 }
 
-linux_main() {
+ubuntu_server_hardening() {
     # Create a working copy to not disturb the original template
     cp -f "$(dirname "$SSH_CONFIGURATION_FILE")/template.conf" "$SSH_CONFIGURATION_FILE" 
 
+    # GRUB
+    grub_security
+    
     # SSH
     apply_sshd_configuration_file
     allowed_users_and_groups
@@ -175,6 +186,7 @@ linux_main() {
 
     #File permissions
     file_permissions
+
 }
 
-export -f linux_main
+export -f ubuntu_server_hardening

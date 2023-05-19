@@ -2,7 +2,7 @@
 
 CURRENT_DIR=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 
-source "$CURRENT_DIR/linux/prepare-boost.sh"
+source "$CURRENT_DIR/ubuntu-server/prepare-steps.sh"
 
 display_banner() {
 cat << EOF
@@ -24,9 +24,5 @@ cat << EOF
 EOF
 }
 
-main() {
-    display_banner
-    linux_main
-}
-
-main
+display_banner
+ubuntu_server_hardening

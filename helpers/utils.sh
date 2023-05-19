@@ -42,4 +42,4 @@ command_exists() {
     [[ -n "$(command -v "$COMMAND")" ]]
 }
 
-export -f directory_exists file_exists is_empty command_exists
+export -f directory_exists file_exists is_empty command_exists port_in_valid_range
