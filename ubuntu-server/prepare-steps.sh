@@ -157,14 +157,38 @@ restrict_access_su_command() {
 
 grub_security() {
     grub_message_prefix "Hardening GRUB for this system"
+    cd /etc/grub.d
+    grub-mkpasswd-pbkdf2 2>&1 | tee /tmp/hash.txt
+    local HASH=$(grep -Eo '(grub\.pbkdf2\.sha512.*)' /tmp/hash.txt)
+
+    if [[ -f "00_header" ]]; then 
+        echo "cat << EOF
+set superusers=\"root\"
+password_pbkdf2 root $HASH
+EOF" >> 00_header
+
+        rm /tmp/hash.txt
+        sudo update-grub
+        
+    else 
+        grub_message_prefix "${redColour}The file 00_header does not exists$endColour"
+    fi
+
+    cd "$HOME"
+
+    grub_message_prefix "Applying readonly permissions on file /boot/grub/grub.cfg"
+    chmod 400 /boot/grub/grub.cfg
+
+    grub_message_prefix "Disabling core dump on /etc/security/limits.conf"
+    echo -e "hard core 0\nsoft core 0" >> /etc/security/limits.conf
+
+    grub_message_prefix "Define a password for the root user"
+    sudo passwd root
 }
 
 file_permissions() {
     echo -e "umask027\nreadonly TMOUT=\"300\"\nexport TMOUT" >> "/etc/bash.bashrc"
     echo "umask027" >> "/etc/profile"
-    echo "umask027" >> "$HOME/.profile"
-
-
 }
 
 ubuntu_server_hardening() {
